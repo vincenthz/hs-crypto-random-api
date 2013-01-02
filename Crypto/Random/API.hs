@@ -25,7 +25,7 @@ import System.Entropy (getEntropy)
 -- except that error are not returned to the user. Instead
 -- the user is suppose to handle reseeding by using the NeedReseed
 -- and SupplyEntropy methods. For other type of errors, the user
--- is expect to generate bytes with the parameters bounds explicity
+-- is expected to generate bytes with the parameters bounds explicity
 -- defined here.
 -- 
 -- The CPRG need to be able to generate up to 2^20 bytes in one call,
