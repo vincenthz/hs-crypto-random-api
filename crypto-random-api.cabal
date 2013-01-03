@@ -1,5 +1,5 @@
 Name:                crypto-random-api
-Version:             0.1.0
+Version:             0.2.0
 Description:         Simple random generators API for cryptography related code
 License:             BSD3
 License-file:        LICENSE
