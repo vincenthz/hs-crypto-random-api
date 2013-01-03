@@ -59,47 +59,47 @@ class CPRG g where
     -- | Supply entropy to the CPRG, that can be used now or later
     -- to reseed the CPRG. This should be used in conjunction to
     -- NeedReseed to know when to supply entropy.
-    cprgSupplyEntropy :: g -> ByteString -> g
+    cprgSupplyEntropy :: ByteString -> g -> g
 
     -- | Generate bytes using the CPRG and the number specified.
     --
     -- For user of the API, it's recommended to use genRandomBytes
     -- instead of this method directly. the CPRG need to be able
     -- to supply at minimum 2^20 bytes at a time.
-    cprgGenBytes      :: g -> Int -> (ByteString, g)
+    cprgGenBytes      :: Int -> g -> (ByteString, g)
 
 -- | Generate bytes using the cprg in parameter.
 --
 -- If the number of bytes requested is really high,
 -- it's preferable to use 'genRandomBytes' for better memory efficiency.
-genRandomBytes :: CPRG g => g   -- ^ CPRG to use
-                         -> Int -- ^ number of bytes to return
+genRandomBytes :: CPRG g => Int -- ^ number of bytes to return
+                         -> g   -- ^ CPRG to use
                          -> (ByteString, g)
-genRandomBytes rng len = (\(lbs,g) -> (B.concat lbs, g)) $ genRandomBytes' rng len
+genRandomBytes len rng = (\(lbs,g) -> (B.concat lbs, g)) $ genRandomBytes' len rng
 
 -- | Generate bytes using the cprg in parameter.
 --
 -- This is not tail recursive and an excessive len (>= 2^29) parameter would
 -- result in stack overflow.
-genRandomBytes' :: CPRG g => g   -- ^ CPRG to use
-                          -> Int -- ^ number of bytes to return
+genRandomBytes' :: CPRG g => Int -- ^ number of bytes to return
+                          -> g   -- ^ CPRG to use
                           -> ([ByteString], g)
-genRandomBytes' rng len
+genRandomBytes' len rng
     | len < 0    = error "genBytes: cannot request negative amount of bytes."
     | otherwise  = loop rng len
             where loop g len
                     | len == 0  = ([], g)
                     | otherwise = let itBytes  = min (2^20) len
-                                      (bs, g') = cprgGenBytes g itBytes
-                                      (l, g'') = genRandomBytes' g' (len-itBytes)
+                                      (bs, g') = cprgGenBytes itBytes g
+                                      (l, g'') = genRandomBytes' (len-itBytes) g'
                                    in (bs:l, g'')
 
--- | this is equivalent to using Control.Arrow 'first' with genBytes.
+-- | this is equivalent to using Control.Arrow 'first' with 'genRandomBytes'.
 --
 -- namely it generate @len bytes and map the bytes to the function @f
 withRandomBytes :: CPRG g => g -> Int -> (ByteString -> a) -> (a, g)
 withRandomBytes rng len f = (f bs, rng')
-    where (bs, rng') = genRandomBytes rng len
+    where (bs, rng') = genRandomBytes len rng
 
 -- | Return system entropy using the entropy package 'getEntropy'
 getSystemEntropy :: Int -> IO ByteString
@@ -121,9 +121,9 @@ getSystemRandomGen = do
     SystemRandom <$> getBS
 
 instance CPRG SystemRandom where
-   cprgNeedReseed    _   = NeverReseed
-   cprgSupplyEntropy g _ = g
-   cprgGenBytes (SystemRandom l) n = (B.concat l1, SystemRandom l2)
+   cprgNeedReseed      _ = NeverReseed
+   cprgSupplyEntropy _ g = g
+   cprgGenBytes n (SystemRandom l) = (B.concat l1, SystemRandom l2)
         where (l1, l2) = lbsSplitAt n l
               lbsSplitAt rBytes (x:xs)
                 | xLen >= rBytes =
