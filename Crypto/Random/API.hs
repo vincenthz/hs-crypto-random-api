@@ -7,6 +7,7 @@
 
 module Crypto.Random.API
     ( CPRG(..)
+    , ReseedPolicy(..)
     , genRandomBytes
     , withRandomBytes
     , getSystemEntropy
