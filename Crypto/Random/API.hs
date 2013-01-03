@@ -9,6 +9,7 @@ module Crypto.Random.API
     ( CPRG(..)
     , ReseedPolicy(..)
     , genRandomBytes
+    , genRandomBytes'
     , withRandomBytes
     , getSystemEntropy
     -- * System Random generator
@@ -63,21 +64,35 @@ class CPRG g where
     -- | Generate bytes using the CPRG and the number specified.
     --
     -- For user of the API, it's recommended to use genRandomBytes
-    -- instead of this method directly.
+    -- instead of this method directly. the CPRG need to be able
+    -- to supply at minimum 2^20 bytes at a time.
     cprgGenBytes      :: g -> Int -> (ByteString, g)
 
 -- | Generate bytes using the cprg in parameter.
--- 
--- arbitrary limit the number of bytes that can be generated in
--- one go to 1mb.
+--
+-- If the number of bytes requested is really high,
+-- it's preferable to use 'genRandomBytes' for better memory efficiency.
 genRandomBytes :: CPRG g => g   -- ^ CPRG to use
                          -> Int -- ^ number of bytes to return
                          -> (ByteString, g)
-genRandomBytes rng len
+genRandomBytes rng len = (\(lbs,g) -> (B.concat lbs, g)) $ genRandomBytes' rng len
+
+-- | Generate bytes using the cprg in parameter.
+--
+-- This is not tail recursive and an excessive len (>= 2^29) parameter would
+-- result in stack overflow.
+genRandomBytes' :: CPRG g => g   -- ^ CPRG to use
+                          -> Int -- ^ number of bytes to return
+                          -> ([ByteString], g)
+genRandomBytes' rng len
     | len < 0    = error "genBytes: cannot request negative amount of bytes."
-    | len > 2^20 = error "genBytes: cannot request more than 1mb of bytes in one go."
-    | len == 0   = (B.empty, rng)
-    | otherwise  = cprgGenBytes rng len
+    | otherwise  = loop rng len
+            where loop g len
+                    | len == 0  = ([], g)
+                    | otherwise = let itBytes  = min (2^20) len
+                                      (bs, g') = cprgGenBytes g itBytes
+                                      (l, g'') = genRandomBytes' g' (len-itBytes)
+                                   in (bs:l, g'')
 
 -- | this is equivalent to using Control.Arrow 'first' with genBytes.
 --
