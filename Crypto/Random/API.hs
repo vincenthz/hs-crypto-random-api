@@ -15,6 +15,16 @@ module Crypto.Random.API
 import qualified Data.ByteString as B
 import Data.ByteString (ByteString)
 import System.Entropy (getEntropy)
+-- | This is the reseed policy requested by the CPRG
+data ReseedPolicy =
+      NeverReseed          -- ^ there is no need to reseed as either
+                           -- the RG doesn't supports it, it's done automatically
+                           -- or pratically the reseeding period exceed a Word64 type.
+    | ReseedInBytes Word64 -- ^ the RG need to be reseed in the number
+                           -- of bytes joined to the type. it should be done before
+                           -- the number reached 0, otherwise an user of the RG
+                           -- might request too many bytes and get repeated random bytes.
+    deriving (Show,Eq)
 
 -- | A class of Cryptographic Secure Random generator.
 --
@@ -35,7 +45,7 @@ class CPRG g where
     -- is required to be supplied so the CPRG doesn't repeat output, and
     -- break assumptions. This returns the number of bytes before
     -- which supply entropy should have been called.
-    cprgNeedReseed    :: g -> Int
+    cprgNeedReseed    :: g -> ReseedPolicy
 
     -- | Supply entropy to the CPRG, that can be used now or later
     -- to reseed the CPRG. This should be used in conjunction to
