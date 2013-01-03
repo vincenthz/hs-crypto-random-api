@@ -62,7 +62,7 @@ class CPRG g where
 -- | Generate bytes using the cprg in parameter.
 -- 
 -- arbitrary limit the number of bytes that can be generated in
--- one go to 10mb.
+-- one go to 1mb.
 genRandomBytes :: CPRG g => g   -- ^ CPRG to use
                          -> Int -- ^ number of bytes to return
                          -> (ByteString, g)
