@@ -15,7 +15,7 @@ module Crypto.Random.API
 
 import qualified Data.ByteString as B
 import Data.ByteString (ByteString)
-import System.Entropy (getEntropy)
+import qualified System.Entropy as SE
 -- | This is the reseed policy requested by the CPRG
 data ReseedPolicy =
       NeverReseed          -- ^ there is no need to reseed as either
@@ -81,4 +81,4 @@ withRandomBytes rng len f = (f bs, rng')
 
 -- | Return system entropy using the entropy package 'getEntropy'
 getSystemEntropy :: Int -> IO ByteString
-getSystemEntropy = getEntropy
+getSystemEntropy = SE.getEntropy
