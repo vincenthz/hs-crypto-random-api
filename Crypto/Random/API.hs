@@ -11,11 +11,18 @@ module Crypto.Random.API
     , genRandomBytes
     , withRandomBytes
     , getSystemEntropy
+    -- * System Random generator
+    , SystemRandom
+    , getSystemRandomGen
     ) where
 
+import Control.Applicative
 import qualified Data.ByteString as B
 import Data.ByteString (ByteString)
 import qualified System.Entropy as SE
+import System.IO.Unsafe (unsafeInterleaveIO)
+import Data.Word
+
 -- | This is the reseed policy requested by the CPRG
 data ReseedPolicy =
       NeverReseed          -- ^ there is no need to reseed as either
@@ -82,3 +89,32 @@ withRandomBytes rng len f = (f bs, rng')
 -- | Return system entropy using the entropy package 'getEntropy'
 getSystemEntropy :: Int -> IO ByteString
 getSystemEntropy = SE.getEntropy
+
+-- | This is a simple generator that pull bytes from the system entropy
+-- directly. Its randomness and security properties are absolutely
+-- depends on the underlaying system implementation.
+data SystemRandom = SystemRandom [B.ByteString]
+
+-- | Get a random number generator based on the standard system entropy source
+getSystemRandomGen :: IO SystemRandom
+getSystemRandomGen = do
+    ch <- SE.openHandle
+    let getBS = unsafeInterleaveIO $ do
+        bs   <- SE.hGetEntropy ch 8192
+        more <- getBS
+        return (bs:more)
+    SystemRandom <$> getBS
+
+instance CPRG SystemRandom where
+   cprgNeedReseed    _   = NeverReseed
+   cprgSupplyEntropy g _ = g
+   cprgGenBytes (SystemRandom l) n = (B.concat l1, SystemRandom l2)
+        where (l1, l2) = lbsSplitAt n l
+              lbsSplitAt rBytes (x:xs)
+                | xLen >= rBytes =
+                    let (b1,b2) = B.splitAt rBytes x
+                     in  ([b1], b2:xs)
+                | otherwise =
+                    let (l1,l2) = lbsSplitAt (rBytes-xLen) xs
+                     in (x:l1,l2)
+                where xLen = B.length x
